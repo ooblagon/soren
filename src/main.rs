@@ -4,7 +4,7 @@ use winit::raw_window_handle::{HasRawWindowHandle, WindowHandle, RawWindowHandle
 use objc::{msg_send, sel, sel_impl};
 use objc::runtime::Object;
 use std::ffi::c_void;
-use core_graphics::{context::CGContext,image::CGImageAlphaInfo, base::kCGImageAlphaPremultipliedFirst, base::kCGBitmapByteOrder32Little};
+use core_graphics::{base::{kCGBitmapByteOrder32Little, kCGImageAlphaPremultipliedFirst, kCGImageAlphaPremultipliedLast}, context::CGContext, image::CGImageAlphaInfo};
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::sys::{CGContextRef, CGImageRef};
 
@@ -43,6 +43,7 @@ impl ApplicationHandler for App {
         let w_size:u32 = 800;
         let h_size:u32 = 600;
         let mut buffer = vec![0u8; self.width * self.height * 4];
+        println!("{}",  buffer.len());
         let color_space = CGColorSpace::create_device_rgb();
         let bitmap_info = kCGImageAlphaPremultipliedFirst
             | kCGBitmapByteOrder32Little;
@@ -68,17 +69,19 @@ impl ApplicationHandler for App {
         let layer: *mut Object = unsafe {
             msg_send![ns_view, layer]
         };
+        let scale: f64 = unsafe{
+            msg_send![ns_view, backingScaleFactor]
+        };
         unsafe {
             let _: () = msg_send![ns_view, setWantsLayer: true];
-        }
-
+            let _: () = msg_send![layer, setContentsScale: scale];
+        };
         for y in 0..self.height{
             for x in 0..self.width{
-                let i = (y * self.width + x) * 4;
-                buffer[i] = 0;//b
-                buffer[i + 1] = 0;//g
-                buffer[i + 2] = 255;//r
-                buffer[i + 3] = 255; //a
+                let r = ((x * 256)/(self.width - 1)) as u8;
+                let g = ((y * 256)/(self.height -1)) as u8;
+                let b = 128;
+                set_pixel(&mut buffer, self.width, x, y, b,g, r, 255);
 
             }
         }
@@ -124,10 +127,31 @@ impl ApplicationHandler for App {
         }
     }
 }
+fn set_pixel(
+    buffer: &mut Vec<u8>,
+    width: usize,
+    x: usize,
+    y: usize,
+    b: u8,
+    g: u8,
+    r: u8,
+    a: u8,
+){
+    let i = (y * width + x) *4;
+    buffer[i] = b;
+    buffer[i + 1] = g;
+    buffer[i + 2] = r;
+    buffer[i + 3] = a;
+}
+
+
+
+
 
 fn main() {
     let event_loop = EventLoop::new().unwrap();
-    let mut app = App { window: None , last_frame: Instant::now() , buffer: None, layer: None, context: None, width: 600, height: 600};
+    let mut app = App { window: None , last_frame: Instant::now() , buffer: None, layer: None, context: None, width: 800, height: 600};
     let cam = Camera::new([12, 13, 10], [11, 10, 9]);
     event_loop.run_app(&mut app).expect("could not run app");
 }
+
