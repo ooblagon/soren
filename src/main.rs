@@ -37,6 +37,7 @@ struct App{
     buffer: Option<Vec<u8>>,
     width: usize,
     height: usize,
+    t: f32,
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop){
@@ -102,14 +103,35 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::RedrawRequested => {
                 let now = Instant::now();
-
+                let delta = now - self.last_frame;
+                let dt = delta.as_secs_f32();
                 if now - self.last_frame >= Duration::from_millis(16){
                     self.last_frame = now;
                     //rendering performed inside here, limits framerate
+                    
+                    //buffer update each frame
+                    for y in 0..self.height{
+                        for x in 0..self.width{
+                            let fx = x as f32 / self.width as f32;
+                            let fy = x as f32 / self.width as f32;
+                            let r = (((fx + self.t).sin() * 0.5 + 0.5) * 255.0) as u8;
+                            let g = (((fy + self.t).cos() * 0.5 + 0.5) * 255.0) as u8;
+                            let b = 255 as u8;
+                            set_pixel(&mut self.buffer.as_mut().unwrap(), self.width, x, y, b , g, r, 255);
+
+                        }
+                    }
+                    
+                    
+                    
+                    //remaking CGImage each frame
                     let image = self.context.as_ref().unwrap().create_image().unwrap();
                     unsafe {
                         let _: () = msg_send![self.layer.unwrap(), setContents: image];
                     }
+
+                    self.t += dt;
+                    
 
                 }
 
@@ -150,7 +172,7 @@ fn set_pixel(
 
 fn main() {
     let event_loop = EventLoop::new().unwrap();
-    let mut app = App { window: None , last_frame: Instant::now() , buffer: None, layer: None, context: None, width: 800, height: 600};
+    let mut app = App { window: None , last_frame: Instant::now() , buffer: None, layer: None, context: None, width: 800, height: 600, t: 0.0};
     let cam = Camera::new([12, 13, 10], [11, 10, 9]);
     event_loop.run_app(&mut app).expect("could not run app");
 }
