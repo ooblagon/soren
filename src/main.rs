@@ -28,14 +28,17 @@ struct TPosition {
     y: i32,
     z: i32,
 }
+struct Color{
+    b: u8,
+    g: u8,
+    r: u8,
+    a: u8
+}
 
 struct Point2 {
     x: i32,
     y: i32,
-}
-struct ScreenPoint {
-    x: usize,
-    y: usize,
+    color: Color
 }
 struct Camera {
     position: TPosition,
@@ -55,6 +58,22 @@ impl Camera {
                 z: position[2],
             },
         }
+    }
+}
+struct Triangle {
+    vertex1: Point2,
+    vertex2: Point2,
+    vertex3: Point2,
+}
+impl Triangle{
+    fn new(v1: Point2, v2: Point2, v3: Point2) -> Triangle{
+        return Triangle{vertex1: v1, vertex2: v2, vertex3: v3};
+    }
+
+    fn draw(self, buffer: &mut Vec<u8>, width: usize, height: usize){
+        set_pixel(buffer, width, height, &self.vertex1);
+        set_pixel(buffer, width, height, &self.vertex2);
+        set_pixel(buffer, width, height, &self.vertex3);
     }
 }
 struct App {
@@ -118,12 +137,13 @@ impl ApplicationHandler for App {
                 let now = Instant::now();
                 let delta = now - self.last_frame;
                 let dt = delta.as_secs_f32();
-                let point = Point2 { x: -10, y: -10 };
-                let screen_point = screen_fixing(self.width, self.height, point);
+                let point = Point2 { x: -50, y: -50, color: Color { b: 255, g: 0, r: 0, a: 255 } };
+                set_background(&mut self.buffer.as_mut().unwrap(), self.width, self.height, Color {b: 0, g: 0, r: 255, a: 255});
                 if now - self.last_frame >= Duration::from_millis(16) {
                     self.last_frame = now;
                     //rendering performed inside here, limits framerate
 
+                    /*
                     //buffer update each frame
                     for y in 0..self.height {
                         for x in 0..self.width {
@@ -144,21 +164,25 @@ impl ApplicationHandler for App {
                             );
                         }
                     }
+                     */
+                    /* 
                     match screen_point {
                         Some(value) => println!("point.x: {}, point.y: {}", value.0, value.1),
                         None => println!("no value found"),
                     }
+                    */
                     set_pixel(
                         &mut self.buffer.as_mut().unwrap(),
                         self.width,
-                        screen_point.unwrap().0 as usize,
-                        screen_point.unwrap().1 as usize,
-                        255,
-                        0,
-                        0,
-                        255,
+                        self.height,
+                        &point,
                     );
-
+                    let vec1 = Point2 {x: 10, y: 10, color: Color { b: 255, g: 255, r: 255, a: 255 }};
+                    let vec2 = Point2 {x: -10, y: -10, color: Color { b: 255, g: 255, r: 255, a: 255 }};
+                    let vec3 = Point2 {x: 10, y: -10, color: Color { b: 255, g: 255, r: 255, a: 255 }};
+                    
+                    let triangle = Triangle::new(vec1, vec2, vec3);
+                    triangle.draw(self.buffer.as_mut().unwrap(), self.width, self.height);
                     //remaking CGImage each frame
                     let image = self.context.as_ref().unwrap().create_image().unwrap();
                     unsafe {
@@ -180,19 +204,15 @@ impl ApplicationHandler for App {
         }
     }
 }
-fn set_pixel(buffer: &mut Vec<u8>, width: usize, x: usize, y: usize, b: u8, g: u8, r: u8, a: u8) {
-    let i = (y * width + x) * 4;
-    buffer[i] = b;
-    buffer[i + 1] = g;
-    buffer[i + 2] = r;
-    buffer[i + 3] = a;
+fn set_pixel(buffer: &mut Vec<u8>, width: usize, height: usize, point: &Point2) {
+    let (x, y)= screen_fixing(width, height, point).unwrap();
+    let i = (y as usize * width + x as usize) * 4;
+    buffer[i] = point.color.b.to_owned();
+    buffer[i + 1] = point.color.g;
+    buffer[i + 2] = point.color.r;
+    buffer[i + 3] = point.color.a;
 }
-fn get_eighth_digit(number: f32) -> Option<u32> {
-    let formatted = format!("{:.8}", number);
-    let last_digit = formatted.chars().last().unwrap();
-    last_digit.to_digit(10)
-}
-fn screen_fixing(screen_width: usize, screen_height: usize, point: Point2) -> Option<(i32, i32)> {
+fn screen_fixing(screen_width: usize, screen_height: usize, point: &Point2) -> Option<(i32, i32)> {
     let sx = point.x + (screen_width as i32 / 2);
     let sy = (screen_height as i32 / 2) - point.y;
     if sx < 0 || sy < 0 || sx >= screen_width as i32 || sy >= screen_height as i32 {
@@ -201,7 +221,17 @@ fn screen_fixing(screen_width: usize, screen_height: usize, point: Point2) -> Op
         Some((sx, sy))
     }
 }
-
+fn set_background(buffer: &mut Vec<u8>, width: usize, height: usize, color: Color) {
+    for y in 0..height{
+        for x in 0..width{
+            let i = (y * width + x) * 4;
+            buffer[i] = color.b;
+            buffer[i + 1] = color.g;
+            buffer[i + 2] = color.r;
+            buffer[i + 3] = color.a;
+        }
+    }
+}
 fn main() {
     let event_loop = EventLoop::new().unwrap();
     let mut app = App {
