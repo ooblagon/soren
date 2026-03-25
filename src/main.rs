@@ -23,67 +23,14 @@ use winit::{
     event_loop::{self, ActiveEventLoop, ControlFlow, EventLoop, EventLoopBuilder},
     window::{self, Window, WindowAttributes},
 };
-struct TPosition {
-    x: i32,
-    y: i32,
-    z: i32,
-}
-#[derive(Debug, Clone, Copy)]
-struct Color{
-    b: u8,
-    g: u8,
-    r: u8,
-    a: u8
-}
 
-#[derive(Debug, Clone, Copy)]
-struct Point2 {
-    x: i32,
-    y: i32,
-    color: Color
-}
-struct Camera {
-    position: TPosition,
-    perspective: TPosition,
-}
-impl Camera {
-    fn new(position: [i32; 3], perspective: [i32; 3]) -> Camera {
-        Camera {
-            position: TPosition {
-                x: position[0],
-                y: position[1],
-                z: position[2],
-            },
-            perspective: TPosition {
-                x: position[0],
-                y: position[1],
-                z: position[2],
-            },
-        }
-    }
-}
-struct Triangle {
-    vertex1: Point2,
-    vertex2: Point2,
-    vertex3: Point2,
-    bounds_v1_v2: Option<Vec<Point2>>,
-    bounds_v2_v3: Option<Vec<Point2>>,
-    bounds_v3_v1: Option<Vec<Point2>>
-}
-impl Triangle{
-    fn new(v1: Point2, v2: Point2, v3: Point2) -> Triangle{
-        let p1_p2 = determine_bounds(&v1, &v2);
-        let p2_p3 = determine_bounds(&v2, &v3);
-        let p3_p1 = determine_bounds(&v3, &v1);
-        return Triangle{vertex1: v1, vertex2: v2, vertex3: v3, bounds_v1_v2: Some(p1_p2), bounds_v2_v3: Some(p2_p3), bounds_v3_v1: Some(p3_p1)};
-    }
+use crate::types::*;
+use crate::triangle::*;
+use crate::rasterizer::*;
+mod rasterizer;
+mod triangle;
+mod types;
 
-    fn draw(self, buffer: &mut Vec<u8>, width: usize, height: usize, fill: bool){
-        rasterize(buffer, width, height, self, fill);
-
-
-    }
-}
 struct App {
     window: Option<Window>,
     last_frame: Instant,
@@ -212,23 +159,6 @@ impl ApplicationHandler for App {
         }
     }
 }
-fn set_pixel(buffer: &mut Vec<u8>, width: usize, height: usize, point: &Point2) {
-    let (x, y)= screen_fixing(width, height, point).unwrap();
-    let i = (y as usize * width + x as usize) * 4;
-    buffer[i] = point.color.b.to_owned();
-    buffer[i + 1] = point.color.g;
-    buffer[i + 2] = point.color.r;
-    buffer[i + 3] = point.color.a;
-}
-fn screen_fixing(screen_width: usize, screen_height: usize, point: &Point2) -> Option<(i32, i32)> {
-    let sx = point.x + (screen_width as i32 / 2);
-    let sy = (screen_height as i32 / 2) - point.y;
-    if sx < 0 || sy < 0 || sx >= screen_width as i32 || sy >= screen_height as i32 {
-        None
-    } else {
-        Some((sx, sy))
-    }
-}
 fn set_background(buffer: &mut Vec<u8>, width: usize, height: usize, color: Color) {
     for y in 0..height{
         for x in 0..width{
@@ -239,61 +169,6 @@ fn set_background(buffer: &mut Vec<u8>, width: usize, height: usize, color: Colo
             buffer[i + 3] = color.a;
         }
     }
-}
-//name might be changed later
-fn determine_bounds(point1: &Point2, point2: &Point2) -> Vec<Point2>{
-    let mut x = point1.x;
-    let mut y = point1.y;
-    let dx = (point2.x - point1.x).abs();
-    let dy = (point2.y - point1.y).abs();
-    let sx = if point1.x < point2.x {1} else {-1};
-    let sy = if point1.y < point2.y {1} else {-1};
-    let mut err = dx - dy;
-    let mut points: Vec<Point2> = Vec::new();
-
-    loop{
-        let point = Point2{x: x, y: y, color: Color { b: point1.color.b, g: point1.color.g, r: point1.color.r, a: point1.color.a }};
-        points.push(point);
-        if x == point2.x && y == point2.y{
-            return points;
-        }
-
-        let e2 = err * 2;
-
-        if e2 > -dy{
-            err -= dy;
-            x += sx;
-        }
-
-        if e2 < dx {
-            err += dx;
-            y += sy;
-        }
-    }
-}
-fn rasterize(buffer: &mut Vec<u8>, width: usize, height: usize, triangle: Triangle, fill: bool){
-    if fill{
-        for point1 in triangle.bounds_v1_v2.unwrap(){
-            for point2 in triangle.bounds_v3_v1.clone().unwrap(){
-                let points = determine_bounds(&point1, &point2);
-                for point in points{
-                    set_pixel(buffer, width, height, &point);
-                }
-            }
-        }
-
-    } else {
-        for point in triangle.bounds_v1_v2.unwrap(){
-            set_pixel(buffer, width, height, &point);
-        }
-        for point in triangle.bounds_v2_v3.unwrap(){
-            set_pixel(buffer, width, height, &point);
-        }
-        for point in triangle.bounds_v3_v1.unwrap(){
-            set_pixel(buffer, width, height, &point);
-        }
-    }
-
 }
 fn main() {
     let event_loop = EventLoop::new().unwrap();
