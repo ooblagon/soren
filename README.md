@@ -2,4 +2,4 @@
 
 Software rendering engine, work in progress
 
-notice all the code is in one file right now, refactoring will happen someday
+Currently only mac specific, platform support is low priority for now, looking to have the program in a more usable state first
