@@ -40,9 +40,21 @@ struct App {
     width: usize,
     height: usize,
     t: f32,
+    triangles: Vec<Triangle>
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let vec1 = Point2 {x: 100, y: 100, color: Color { b: 0, g: 0, r: 0, a: 255 }};
+        let vec2 = Point2 {x: -100, y: -131, color: Color { b: 0, g: 0, r: 0, a: 255 }};
+        let vec3 = Point2 {x: 100, y: -100, color: Color { b: 0, g: 0, r: 0, a: 255 }};
+                    
+        let triangle = Triangle::new(vec1, vec2, vec3);
+
+        let mut triangles: Vec<Triangle> = Vec::new();
+        triangles.push(triangle);
+
+        self.triangles = triangles;
+
         let w_size: u32 = 1000;
         let h_size: u32 = 1000;
         let mut buffer = vec![0u8; self.width * self.height * 4];
@@ -92,7 +104,7 @@ impl ApplicationHandler for App {
                 let now = Instant::now();
                 let delta = now - self.last_frame;
                 let dt = delta.as_secs_f32();
-                let point = Point2 { x: -50, y: -50, color: Color { b: 255, g: 0, r: 0, a: 255 } };
+                
                 set_background(&mut self.buffer.as_mut().unwrap(), self.width, self.height, Color {b: 0, g: 0, r: 255, a: 255});
                 if now - self.last_frame >= Duration::from_millis(16) {
                     self.last_frame = now;
@@ -126,18 +138,9 @@ impl ApplicationHandler for App {
                         None => println!("no value found"),
                     }
                     */
-                    set_pixel(
-                        &mut self.buffer.as_mut().unwrap(),
-                        self.width,
-                        self.height,
-                        &point,
-                    );
-                    let vec1 = Point2 {x: 100, y: 100, color: Color { b: 0, g: 0, r: 0, a: 255 }};
-                    let vec2 = Point2 {x: -100, y: -131, color: Color { b: 0, g: 0, r: 0, a: 255 }};
-                    let vec3 = Point2 {x: 100, y: -100, color: Color { b: 0, g: 0, r: 0, a: 255 }};
-                    
-                    let triangle = Triangle::new(vec1, vec2, vec3);
-                    triangle.draw(self.buffer.as_mut().unwrap(), self.width, self.height, true);
+                    for triangle in &self.triangles{
+                        triangle.draw(&mut self.buffer.as_mut().unwrap(), self.width, self.height, true);
+                    }
                     //remaking CGImage each frame
                     let image = self.context.as_ref().unwrap().create_image().unwrap();
                     unsafe {
@@ -181,6 +184,7 @@ fn main() {
         width: 1000,
         height: 1000,
         t: 0.0,
+        triangles: Vec::new()
     };
     let cam = Camera::new([12, 13, 10], [11, 10, 9]);
     event_loop.run_app(&mut app).expect("could not run app");

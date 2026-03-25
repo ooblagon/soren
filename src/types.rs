@@ -11,7 +11,12 @@ pub struct Color{
     pub r: u8,
     pub a: u8
 }
-
+pub struct Point3{
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub color: Color
+}
 #[derive(Debug, Clone, Copy)]
 pub struct Point2 {
     pub x: i32,

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::types::*;
 use crate::triangle::*;
 
@@ -50,25 +52,31 @@ pub fn determine_bounds(point1: &Point2, point2: &Point2) -> Vec<Point2>{
         }
     }
 }
-pub fn rasterize(buffer: &mut Vec<u8>, width: usize, height: usize, triangle: Triangle, fill: bool){
+pub fn rasterize(buffer: &mut Vec<u8>, width: usize, height: usize, triangle: &Triangle, fill: bool){
     if fill{
-        for point1 in triangle.bounds_v1_v2.unwrap(){
-            for point2 in triangle.bounds_v3_v1.clone().unwrap(){
-                let points = determine_bounds(&point1, &point2);
-                for point in points{
-                    set_pixel(buffer, width, height, &point);
+
+        let min_y = triangle.vertex1.y.min(triangle.vertex2.y).min(triangle.vertex3.y);
+        let max_y = triangle.vertex1.y.max(triangle.vertex2.y).max(triangle.vertex3.y);
+
+        for y in min_y..=max_y{
+            if let Some(points) = triangle.edge_map.get(&y){
+                let min_x = points.iter().map(|p| p.x).min().unwrap();
+                let max_x = points.iter().map(|p| p.x).max().unwrap();
+
+                for x in min_x..=max_x{
+                    let point = Point2 {x, y, color: triangle.vertex1.color};
+                    set_pixel(buffer,width, height, &point);
                 }
             }
         }
-
     } else {
-        for point in triangle.bounds_v1_v2.unwrap(){
+        for point in triangle.bounds_v1_v2.as_ref().unwrap(){
             set_pixel(buffer, width, height, &point);
         }
-        for point in triangle.bounds_v2_v3.unwrap(){
+        for point in triangle.bounds_v2_v3.as_ref().unwrap(){
             set_pixel(buffer, width, height, &point);
         }
-        for point in triangle.bounds_v3_v1.unwrap(){
+        for point in triangle.bounds_v3_v1.as_ref().unwrap(){
             set_pixel(buffer, width, height, &point);
         }
     }
