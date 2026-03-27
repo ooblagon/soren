@@ -34,7 +34,8 @@ struct App {
     window: Option<Window>,
     last_frame: Instant,
     layer: Option<*mut objc::runtime::Object>,
-    surface: Option<*mut c_void>,
+    surfaces: Option<[*mut c_void; 2]>,
+    current: usize,
     width: usize,
     height: usize,
     t: f32,
@@ -53,40 +54,12 @@ impl ApplicationHandler for App {
 
         self.triangles = triangles;
 
-        let w_size: u32 = 1000;
-        let h_size: u32 = 1000;
-        
-        let properties: *mut Object = unsafe { msg_send![objc::class!(NSMutableDictionary), new] };
-        unsafe {
-            //we are doing magic here
-            //raw objc pointers
-            let w: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: self.width as i32];
-            let h: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: self.height as i32];
-            let bpe: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: 4i32];
-            let bpr: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: (self.width * 4) as i32];
-            let pf: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: 0x42475241i32]; //magic number, pixel format, ARGB little endian
-
-            let k_width: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceWidth\0".as_ptr()];
-            let k_height: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceHeight\0".as_ptr()];
-            let k_bpe: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceBytesPerElement\0".as_ptr()];
-            let k_bpr: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceBytesPerRow\0".as_ptr()];
-            let k_pf: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfacePixelFormat\0".as_ptr()];
-
-            let _: () = msg_send![properties, setObject: w forKey: k_width];
-            let _: () = msg_send![properties, setObject: h forKey: k_height];
-            let _: () = msg_send![properties, setObject: bpe forKey: k_bpe];
-            let _: () = msg_send![properties, setObject: bpr forKey: k_bpr];
-            let _: () = msg_send![properties, setObject: pf forKey: k_pf];
-        };
-        let surface = unsafe { IOSurfaceCreate(properties as *const c_void)};
-
-        if surface.is_null() {
-            panic!("IOSurfaceCreate returned null");
-        }
 
         let attributes = WindowAttributes::default();
-        let window = event_loop.create_window(Default::default()).unwrap();
-        window.set_max_inner_size(Some(winit::dpi::LogicalSize::new(w_size, h_size)));
+        let window = event_loop.create_window(WindowAttributes::default().with_inner_size(
+            winit::dpi::LogicalSize::new(self.width as u32, self.height as u32)
+        )).unwrap();
+        window.set_max_inner_size(Some(winit::dpi::LogicalSize::new(self.width as u32, self.height as u32)));
         //gets window handle for blitting later
         let handle = window.raw_window_handle().unwrap();
 
@@ -99,14 +72,23 @@ impl ApplicationHandler for App {
         let layer: *mut Object = unsafe { msg_send![ns_view, layer] };
 
         let scale: f64 = unsafe { msg_send![ns_view, backingScaleFactor] };
+
+        let surface_a = unsafe{create_surface(self.width, self.height)};
+        let surface_b = unsafe{create_surface(self.width, self.height)};
+
         unsafe {
+            //display a
+            let _:() = msg_send![layer, setContents: surface_a as *mut Object ];
+
             let _: () = msg_send![ns_view, setWantsLayer: true];
             let _: () = msg_send![layer, setContentsScale: 1.0f64];
-            let _: () = msg_send![layer, setContents: surface];
-        };
-
+            let _: () = msg_send![layer, setContents: surface_a];
+        }
+        
         self.layer = Some(layer);
-        self.surface = Some(surface);
+        self.surfaces = Some([surface_a, surface_b]);
+        //write to b (a is being displayed)
+        self.current = 1;
         window.request_redraw();
         self.window = Some(window);
     }
@@ -127,27 +109,33 @@ impl ApplicationHandler for App {
                     self.last_frame = now;
                     //rendering performed inside here, limits framerate
 
-                    if let Some(surface) = self.surface{
+                    if let Some(surfaces) = self.surfaces{
                         
-                        unsafe{ IOSurfaceLock(surface, 0, ptr::null_mut());}
+                        let back = surfaces[self.current];
+
+
+                        unsafe{ IOSurfaceLock(back, 0, ptr::null_mut());}
                         
-                        let base = unsafe{ IOSurfaceGetBaseAddress(surface)};
+                        let base = unsafe{ IOSurfaceGetBaseAddress(back)};
                         let buffer = unsafe{
                             std::slice::from_raw_parts_mut(base as *mut u8, self.width * self.height * 4)
                         };
                         
-
-                        set_background(buffer, self.width, self.height, Color {b: 0, g: 0, r: 255, a: 255});
+                        set_background(buffer, self.width, self.height, Color {b:0, g:0, r:255, a:255});
+                        
 
                         for triangle in &self.triangles{
                         triangle.draw(buffer, self.width, self.height, true);
                         }
 
-                        unsafe { IOSurfaceUnlock(surface, 0, ptr::null_mut()); }
+                        unsafe { IOSurfaceUnlock(back, 0, ptr::null_mut()); }
 
                         unsafe {    
-                            let _:() = msg_send![self.layer.unwrap(), setContents: surface];
+                            let _:() = msg_send![self.layer.unwrap(), setContents: back as *mut Object];
                         }
+
+                        //next frame we write to other surface
+                        self.current = 1 - self.current
                     }
 
                     self.t += dt;
@@ -164,6 +152,34 @@ impl ApplicationHandler for App {
             _ => (),
         }
     }
+}
+unsafe fn create_surface(width: usize, height: usize) -> *mut c_void{
+
+    let properties: *mut Object = unsafe { msg_send![objc::class!(NSMutableDictionary), new] };
+    //we are doing magic here
+    //raw objc pointers
+    let w: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: width as i32];
+    let h: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: height as i32];
+    let bpe: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: 4i32];
+    let bpr: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: (width * 4) as i32];
+    let pf: *mut Object = msg_send![objc::class!(NSNumber), numberWithInt: 0x42475241i32]; //magic number, pixel format, ARGB little endian
+
+    let k_width: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceWidth\0".as_ptr()];
+    let k_height: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceHeight\0".as_ptr()];
+    let k_bpe: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceBytesPerElement\0".as_ptr()];
+    let k_bpr: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfaceBytesPerRow\0".as_ptr()];
+    let k_pf: *mut Object = msg_send![objc::class!(NSString), stringWithUTF8String: b"IOSurfacePixelFormat\0".as_ptr()];
+
+    let _: () = msg_send![properties, setObject: w forKey: k_width];
+    let _: () = msg_send![properties, setObject: h forKey: k_height];
+    let _: () = msg_send![properties, setObject: bpe forKey: k_bpe];
+    let _: () = msg_send![properties, setObject: bpr forKey: k_bpr];
+    let _: () = msg_send![properties, setObject: pf forKey: k_pf];  
+
+    let surface =  IOSurfaceCreate(properties as *const c_void);
+    assert!(!surface.is_null(), "IOSurface create failed");
+    surface
+
 }
 fn set_background(buffer: &mut [u8], width: usize, height: usize, color: Color) {
     for y in 0..height{
@@ -182,7 +198,8 @@ fn main() {
         window: None,
         last_frame: Instant::now(),
         layer: None,
-        surface: None,
+        surfaces: None,
+        current: 0,
         width: 1000,
         height: 1000,
         t: 0.0,
