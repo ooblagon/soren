@@ -4,7 +4,7 @@ use crate::types::*;
 use crate::triangle::*;
 
 
-pub fn set_pixel(buffer: &mut Vec<u8>, width: usize, height: usize, point: &Point2) {
+pub fn set_pixel(buffer: &mut [u8], width: usize, height: usize, point: &Point2) {
     let (x, y)= screen_fixing(width, height, point).unwrap();
     let i = (y as usize * width + x as usize) * 4;
     buffer[i] = point.color.b.to_owned();
@@ -52,7 +52,7 @@ pub fn determine_bounds(point1: &Point2, point2: &Point2) -> Vec<Point2>{
         }
     }
 }
-pub fn rasterize(buffer: &mut Vec<u8>, width: usize, height: usize, triangle: &Triangle, fill: bool){
+pub fn rasterize(buffer: &mut [u8], width: usize, height: usize, triangle: &Triangle, fill: bool){
     if fill{
 
         let min_y = triangle.vertex1.y.min(triangle.vertex2.y).min(triangle.vertex3.y);

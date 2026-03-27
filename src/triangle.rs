@@ -32,7 +32,7 @@ impl Triangle{
         return Triangle{vertex1: v1, vertex2: v2, vertex3: v3, bounds_v1_v2: Some(p1_p2), bounds_v2_v3: Some(p2_p3), bounds_v3_v1: Some(p3_p1), edge_map};
     }
 
-    pub fn draw(&self, buffer: &mut Vec<u8>, width: usize, height: usize, fill: bool){
+    pub fn draw(&self, buffer: &mut [u8], width: usize, height: usize, fill: bool){
         rasterize(buffer, width, height, self, fill);
     }
 }
