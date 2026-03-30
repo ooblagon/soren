@@ -2,17 +2,13 @@
 use objc::runtime::Object;
 use objc::{msg_send, sel, sel_impl};
 use std::ffi::c_void;
-use std::{
-    arch::aarch64::int16x4x3_t,
-    time::{Duration, Instant},
-    vec,
-};
-use winit::raw_window_handle::{HasRawWindowHandle, RawWindowHandle, WindowHandle};
+use std::time::{Duration, Instant};
+use winit::raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{
     self,
     application::ApplicationHandler,
-    event::{self, Event, WindowEvent},
-    event_loop::{self, ActiveEventLoop, ControlFlow, EventLoop, EventLoopBuilder},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop},
     window::{self, Window, WindowAttributes},
 };
 use std::ptr;
@@ -26,7 +22,6 @@ unsafe extern "C" {
 use crate::rectangle::Rectangle;
 use crate::types::*;
 use crate::triangle::*;
-use crate::rasterizer::*;
 mod rasterizer;
 mod triangle;
 mod types;
@@ -45,11 +40,6 @@ struct App {
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        
-
-        let mut triangles: Vec<Triangle> = Vec::new();
-
-        self.triangles = triangles;
 
 
         let attributes = WindowAttributes::default();

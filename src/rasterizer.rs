@@ -1,6 +1,4 @@
-use std::collections::HashMap;
 
-use crate::triangle;
 use crate::types::*;
 use crate::triangle::*;
 

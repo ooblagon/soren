@@ -1,4 +1,3 @@
-use crate::rectangle;
 use crate::triangle::Triangle;
 use crate::types::*;
 use crate::rasterizer::*;
