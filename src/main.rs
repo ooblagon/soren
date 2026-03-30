@@ -23,12 +23,14 @@ unsafe extern "C" {
     fn IOSurfaceGetBaseAddress(surface: *mut c_void) -> *mut c_void;
 }
 
+use crate::rectangle::Rectangle;
 use crate::types::*;
 use crate::triangle::*;
 use crate::rasterizer::*;
 mod rasterizer;
 mod triangle;
 mod types;
+mod rectangle;
 
 struct App {
     window: Option<Window>,
@@ -43,14 +45,9 @@ struct App {
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let vec1 = Point2 {x: 100, y: 100, color: Color { b: 0, g: 0, r: 0, a: 255 }};
-        let vec2 = Point2 {x: -100, y: -131, color: Color { b: 0, g: 0, r: 0, a: 255 }};
-        let vec3 = Point2 {x: 100, y: -100, color: Color { b: 0, g: 0, r: 0, a: 255 }};
-                    
-        let triangle = Triangle::new(vec1, vec2, vec3);
+        
 
         let mut triangles: Vec<Triangle> = Vec::new();
-        triangles.push(triangle);
 
         self.triangles = triangles;
 
@@ -107,12 +104,11 @@ impl ApplicationHandler for App {
                 
                 if now - self.last_frame >= Duration::from_millis(16) {
                     self.last_frame = now;
-                    //rendering performed inside here, limits framerate
 
+                    //rendering performed inside here, limits framerate
                     if let Some(surfaces) = self.surfaces{
                         
                         let back = surfaces[self.current];
-
 
                         unsafe{ IOSurfaceLock(back, 0, ptr::null_mut());}
                         
@@ -120,13 +116,23 @@ impl ApplicationHandler for App {
                         let buffer = unsafe{
                             std::slice::from_raw_parts_mut(base as *mut u8, self.width * self.height * 4)
                         };
+
+
+                        
                         
                         set_background(buffer, self.width, self.height, Color {b:0, g:0, r:255, a:255});
                         
-
-                        for triangle in &self.triangles{
-                        triangle.draw(buffer, self.width, self.height, true);
-                        }
+                        let offset = (self.t * 2.0).sin();
+                        let d_x = (100.0 * offset) as i32;
+                        let d_y = (100.0) as i32;
+                        let vec1 = Point2 {x: d_x, y: d_y, color: Color { b: 0, g: 0, r: 0, a: 255 }};
+                        let vec2 = Point2 {x: d_x, y: -d_y, color: Color { b: 0, g: 0, r: 0, a: 255 }};
+                        let vec3 = Point2 {x: -d_x, y: -d_y, color: Color { b: 0, g: 0, r: 0, a: 255 }};
+                        let vec4 = Point2 {x: -d_x, y: d_y, color: Color {b: 0, g: 0, r: 0, a: 255}};
+                    
+                        let rectangle = Rectangle::new(vec1, vec2, vec3, vec4,);
+                        rectangle.draw(buffer, self.width, self.height, true);
+                        
 
                         unsafe { IOSurfaceUnlock(back, 0, ptr::null_mut()); }
 

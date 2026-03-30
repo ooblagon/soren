@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::triangle;
 use crate::types::*;
 use crate::triangle::*;
 
@@ -79,6 +80,13 @@ pub fn rasterize(buffer: &mut [u8], width: usize, height: usize, triangle: &Tria
         for point in triangle.bounds_v3_v1.as_ref().unwrap(){
             set_pixel(buffer, width, height, &point);
         }
+    }
+
+}
+pub fn rasterize_polygon(buffer: &mut [u8], width: usize, height: usize, vertices: &[Point2], fill: bool){
+    for i in 1..vertices.len() -1 {
+        let tri = Triangle::new(vertices[0], vertices[i], vertices[i+1]);
+        rasterize(buffer, width, height, &tri, fill);
     }
 
 }
